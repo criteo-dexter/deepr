@@ -1,0 +1,14 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: DeepR
+  description: DeepR for Machine Learning
+  tags:
+    - python
+  annotations:
+    backstage.io/techdocs-ref: github:http://github.com/criteo-dexter/deepr
+    github.com/project-slug: criteo/deepr
+spec:
+  type: service
+  lifecycle: production
+  owner: deepr@criteo.com

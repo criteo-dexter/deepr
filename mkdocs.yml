@@ -1,0 +1,9 @@
+site_name: 'DeepR'
+
+nav:
+  - Home: README.rst
+
+repo_url: http://github.com/criteo-dexter/deepr
+
+plugins:
+  - techdocs-core
