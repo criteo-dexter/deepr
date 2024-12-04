@@ -8,7 +8,7 @@ from deepr.layers.base import Layer
 from deepr.utils.datastruct import to_flat_tuple
 
 
-class Sequential(Layer):
+class DAG(Layer):
     """Class to easily compose layers in a deep learning network.
 
     A Deep Learning Network is a Directed Acyclic Graph (DAG) of layers.
@@ -17,11 +17,11 @@ class Sequential(Layer):
 
     .. code-block:: python
 
-        @dprl.layer(n_in=1, n_out=1)
+        @deepr.layers.layer(n_in=1, n_out=1)
         def OffsetLayer(tensors, mode, offset):
             return tensors + offset
 
-        layer = dprl.Sequential(
+        layer = deepr.layers.DAG(
             OffsetLayer(offset=1, inputs="x"),
             OffsetLayer(offset=2, outputs="y")
         )
@@ -34,12 +34,12 @@ class Sequential(Layer):
 
     .. code-block:: python
 
-        @dprl.layer(n_in=2, n_out=1)
+        @deepr.layers.layer(n_in=2, n_out=1)
         def Add(tensors, mode):
             x, y = tensors
             return x + y
 
-        layer = dprl.Sequential(
+        layer = deepr.layers.DAG(
             OffsetLayer(offset=2, inputs="x", outputs="y"),
             OffsetLayer(offset=2, inputs="x", outputs="z"),
             Add(inputs="y, z", outputs="total"),
@@ -48,7 +48,7 @@ class Sequential(Layer):
         layer({"x": 1})  # {"total": 6}
 
     As always, the resulting layer can be operated on Tensors or
-    dictionaries of Tensors. The inputs / outputs of the :class:`~Sequential`
+    dictionaries of Tensors. The inputs / outputs of the :class:`~DAG`
     layer corresponds to the inputs of the first layer and the outputs
     of the last layer in the stack (intermediary nodes that are not
     returned by the last layer will not be returned).
@@ -58,12 +58,12 @@ class Sequential(Layer):
 
     .. code-block:: python
 
-        layer = dprl.Sequential(
-            dprl.Select("x1, x2"),
+        layer = deepr.layers.DAG(
+            deepr.layers.Select("x1, x2"),
             OffsetLayer(offset=2, inputs="x1", outputs="y1"),
             OffsetLayer(offset=2, inputs="x2", outputs="y2"),
             Add(inputs="y1, y2", outputs="y3"),
-            dprl.Select("y1, y2, y3"),
+            deepr.layers.Select("y1, y2, y3"),
         )
         layer((1, 2))  # (3, 4, 7)
         layer({"x1": 1, "x2": 2})  # {"y1": 3, "y2": 4, "y3": 7}
@@ -74,8 +74,8 @@ class Sequential(Layer):
 
     .. code-block:: python
 
-        layer = dprl.Sequential(
-            dprl.Select(n_in=2),  # Defines "t_0" and "t_1" nodes
+        layer = deepr.layers.DAG(
+            deepr.layers.Select(n_in=2),  # Defines "t_0" and "t_1" nodes
             OffsetLayer(offset=2),  # Replace "t_0" <- "t_0" + 2
             Add(),  # Returns "t_0" + "t_1"
         )
@@ -109,6 +109,10 @@ class Sequential(Layer):
         return outputs
 
 
+# For Legacy purposes
+Sequential = DAG
+
+
 class Select(Layer):
     """Layer to extract inputs / outputs from previous layers
 
@@ -118,11 +122,11 @@ class Select(Layer):
 
     .. code-block:: python
 
-        layer = dprl.Select(inputs=("x", "y"), outputs="z", n_in=2, indices=1)
+        layer = deepr.layers.Select(inputs=("x", "y"), outputs="z", n_in=2, indices=1)
         layer((1, 2))  # 2
         layer({"x": 1, "y": 2})  # {"z": 2}
 
-    See :class:`~Sequential` documentation for more precisions.
+    See :class:`~DAG` documentation for more precisions.
     """
 
     def __init__(
@@ -209,25 +213,25 @@ class Rename(Layer):
 
     .. code-block:: python
 
-        @dprl.layer(n_in=2, n_out=1)
+        @deepr.layers.layer(n_in=2, n_out=1)
         def Add(tensors):
             x, y = tensors
             return x + y
 
         add = Add(inputs="a, b", outputs="c")
-        layer = dprl.Rename(layer=add, inputs="x, y", outputs="z")
+        layer = deepr.layers.Rename(layer=add, inputs="x, y", outputs="z")
         layer((1, 1))  # 2
         layer({"x": 1, "y": 1})  # {"z": 2}
 
     Note that the same behavior can be achieved using :class:`~Select`
-    and :class:`~Sequential` as follows:
+    and :class:`~DAG` as follows:
 
     .. code-block:: python
 
-        layer = dprl.Sequential(
-            dprl.Select(inputs=("x", "y"), outputs=("a", "b")),
+        layer = deepr.layers.DAG(
+            deepr.layers.Select(inputs=("x", "y"), outputs=("a", "b")),
             Add(inputs=("a", "b"), outputs="c"),
-            dprl.Select("c", "z"),
+            deepr.layers.Select("c", "z"),
         )
     """
 
@@ -259,7 +263,7 @@ class Parallel(Layer):
 
         layer1 = Add(inputs="x1, x2", outputs="y1")
         layer2 = OffsetLayer(offset=1, inputs="x3", outputs="y2")
-        layer = dprl.Parallel(layer1, layer2)
+        layer = deepr.layers.Parallel(layer1, layer2)
         layer((1, 1, 2))  # (2, 3)
         layer({"x1": 1, "x2": 1, "x3": 2})  # {"y1": 2, "y2": 3}
     """

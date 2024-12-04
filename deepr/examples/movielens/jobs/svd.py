@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import deepr as dpr
+import deepr
 
 try:
     import pandas as pd
@@ -28,19 +28,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class SVD(dpr.jobs.Job):
+class SVD(deepr.jobs.Job):
     """Build SVD embeddings."""
 
     path_csv: str
     path_embeddings: str
+    path_counts: str
     vocab_size: int
-    dim: int = 100
+    dim: int = 600
     min_count: int = 10
 
     def run(self):
         # Read user-item matrix
         LOGGER.info(f"Reading user-item rankings from {self.path_csv}")
-        with dpr.io.Path(self.path_csv).open() as file:
+        with deepr.io.Path(self.path_csv).open() as file:
             tp = pd.read_csv(file)
         n_users = tp["uid"].max() + 1
         rows, cols = tp["uid"], tp["sid"]
@@ -48,24 +49,29 @@ class SVD(dpr.jobs.Job):
             (np.ones_like(rows), (rows, cols)), dtype="int64", shape=(n_users, self.vocab_size)
         )
 
+        # Computing counts
+        LOGGER.info(f"Saving counts to {self.path_counts}")
+        item_counts = np.asarray(user_item.sum(axis=0)).flatten()
+        with deepr.io.Path(self.path_counts).open("wb") as file:
+            np.save(file, item_counts)
+
         # Computing co-occurrence matrix
         LOGGER.info("Computing co-occurrence matrix")
         item_item = compute_coocurrence(user_item, self.min_count)
 
         # Compute PMI from co-occurrence
         LOGGER.info("Computing PMI matrix")
-        pmi = compute_pmi(item_item)
+        item_item = compute_pmi(item_item)
 
         # Compute Truncated SVD
         LOGGER.info("Computing Truncated SVD from PMI matrix")
         svd = TruncatedSVD(n_components=self.dim, algorithm="arpack", random_state=42)
-        svd.fit(pmi)
+        embeddings = svd.fit_transform(item_item)
         LOGGER.info(f"Explained variance: {svd.explained_variance_ratio_.sum()}")
 
         LOGGER.info(f"Saving embeddings to {self.path_embeddings}")
-        dpr.io.Path(self.path_embeddings).parent.mkdir(parents=True, exist_ok=True)
-        embeddings = svd.transform(pmi)
-        with dpr.io.Path(self.path_embeddings).open("wb") as file:
+        deepr.io.Path(self.path_embeddings).parent.mkdir(parents=True, exist_ok=True)
+        with deepr.io.Path(self.path_embeddings).open("wb") as file:
             np.save(file, embeddings)
 
 

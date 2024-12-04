@@ -7,8 +7,8 @@ The format is based on `Keep a Changelog <http://keepachangelog.com/>`_
 and this project adheres to `Semantic Versioning <http://semver.org/>`_.
 
 
-[Unreleased]
-------------
+[2.13.0] - 2023-01-07
+---------------------
 
 Added
 ~~~~~
@@ -20,8 +20,62 @@ Removed
 ~~~~~~~
 Fixed
 ~~~~~
+- Fixed CI to make it keep passing on Python 3.6
+- Fix mlflow compatibility with mlflow server 1.30.0
 Security
 ~~~~~~~~
+
+
+[2.12.0] - 2021-04-29
+---------------------
+
+Added
+~~~~~
+- function support for ``Pipeline``
+
+Changed
+~~~~~~~
+Deprecated
+~~~~~~~~~~
+Removed
+~~~~~~~
+Fixed
+~~~~~
+Security
+~~~~~~~~
+
+
+[2.11.0] - 2020-12-11
+---------------------
+
+Added
+~~~~~
+- Add new name for ``layers.Sequential`` (now ``layers.DAG`` for Directed Acyclic Graph), kept old name for legacy reasons
+- Add new argument options to ``layers.DenseIndex`` (reuse, trainable and initializer)
+
+Changed
+~~~~~~~
+- Remove shortened imports ``import deepr as dpr`` as it is useless.
+
+Deprecated
+~~~~~~~~~~
+Removed
+~~~~~~~
+- Unnecessary logging in metrics tensors' names resolution
+
+Fixed
+~~~~~
+- Incorrect numpy requirement (incompatible with Tensorflow requirements)
+
+Security
+~~~~~~~~
+
+[2.10.0] - 2020-10-28
+---------------------
+Added
+~~~~~
+- Log yarn launcher app id with mlflow.
+
 
 [2.9.1] - 2020-10-01
 --------------------

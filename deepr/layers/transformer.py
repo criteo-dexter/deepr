@@ -8,7 +8,7 @@ import numpy as np
 import tensorflow as tf
 
 from deepr.layers import base
-from deepr.layers.combinators import Sequential, Select, Scope
+from deepr.layers.combinators import DAG, Select, Scope
 from deepr.layers.dropout import SpatialDropout1D, Dropout
 from deepr.layers.slice import SliceLastPadded
 from deepr.layers.core import Conv1d, Dense, Add, Scale
@@ -36,7 +36,7 @@ def Transformer(
     outputs: str = "userEmbeddings",
 ) -> base.Layer:
     """Transformer Model."""
-    return Sequential(
+    return DAG(
         Select(n_in=2, inputs=inputs, outputs=("inputEmbeddings", "inputMask")),
         SpatialDropout1D(inputs="inputEmbeddings", outputs="inputEmbeddingsDropout", dropout_rate=event_dropout_rate),
         AttentionMask(inputs="inputMask", outputs="mask", use_look_ahead_mask=use_look_ahead_mask),
@@ -46,13 +46,13 @@ def Transformer(
             else Select(inputs="inputEmbeddingsDropout", outputs="inputEnc")
         ),
         (
-            PositionalEncoding(inputs="inputEnc", outputs="inputEnc", trainable=trainable_positional_encoding,)
+            PositionalEncoding(inputs="inputEnc", outputs="inputEnc", trainable=trainable_positional_encoding)
             if use_positional_encoding
             else []
         ),
         [
             Scope(
-                Sequential(
+                DAG(
                     SelfMultiheadAttention(
                         inputs=("inputEnc", "mask"),
                         outputs="inputEnc",
@@ -91,14 +91,12 @@ def Transformer(
     )
 
 
-def FeedForward(
-    inputs: str, outputs: str, units_inner: int, units_readout: int, dim: int, dropout_rate: float,
-):
+def FeedForward(inputs: str, outputs: str, units_inner: int, units_readout: int, dim: int, dropout_rate: float):
     """FeedForward Layer."""
     if inputs == "_x":
         raise ValueError("Cannot use name '_x' for inputs (used as intermediary node).")
 
-    return Sequential(
+    return DAG(
         Select(inputs=inputs, outputs="_x"),
         Dropout(inputs="_x", outputs="_x", dropout_rate=dropout_rate),
         Conv1d(inputs="_x", outputs="_x", filters=units_inner, kernel_size=1, activation=tf.nn.relu, use_bias=True),
@@ -211,9 +209,7 @@ class SelfMultiheadAttention(base.Layer):
         If True, add input to output (residual connection)
     """
 
-    def __init__(
-        self, num_heads: int, dim_head: int, residual_connection: bool, **kwargs,
-    ):
+    def __init__(self, num_heads: int, dim_head: int, residual_connection: bool, **kwargs):
         super().__init__(n_in=2, n_out=1, **kwargs)
         self.num_heads = num_heads
         self.dim_head = dim_head

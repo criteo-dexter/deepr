@@ -3,11 +3,11 @@
 
 import logging
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List, Union, Optional
 
 import numpy as np
 
-import deepr as dpr
+import deepr
 from deepr.utils import mlflow
 
 try:
@@ -20,7 +20,7 @@ LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
-class Evaluate(dpr.jobs.Job):
+class Evaluate(deepr.jobs.Job):
     """Evaluate MovieLens using a Faiss Index.
 
     For each user embedding, the top num_queries items are retrieved.
@@ -30,31 +30,40 @@ class Evaluate(dpr.jobs.Job):
 
     path_predictions: str
     path_embeddings: str
-    path_biases: str
-    k: Union[int, List[int]]
+    path_biases: Optional[str] = None
+    k: Union[int, List[int]] = 50
     use_mlflow: bool = False
     num_queries: int = 1000
 
     def run(self):
-        with dpr.io.ParquetDataset(self.path_predictions).open() as ds:
+        with deepr.io.ParquetDataset(self.path_predictions).open() as ds:
             predictions = ds.read_pandas().to_pandas()
             users = np.stack(predictions["user"])
+
+        if deepr.io.Path(self.path_embeddings).suffix == ".npz":
+            with deepr.io.Path(self.path_embeddings).open("rb") as file:
+                embeddings = np.load(file)
+                embeddings = embeddings.astype(np.float32)
+        else:
+            with deepr.io.ParquetDataset(self.path_embeddings).open() as ds:
+                embeddings = ds.read_pandas().to_pandas()
+                embeddings = embeddings.to_numpy()
+
+        if self.path_biases is not None:
+            # Concatenate biases to product embeddings
+            with deepr.io.ParquetDataset(self.path_biases).open() as ds:
+                biases = ds.read_pandas().to_pandas()
+                biases = biases.to_numpy()
+            embeddings = np.concatenate([embeddings, biases], axis=-1)
+
+            # Concatenate ones to users
             ones = np.ones([users.shape[0], 1], np.float32)
-            users_with_ones = np.concatenate([users, ones], axis=-1)
+            users = np.concatenate([users, ones], axis=-1)
 
-        with dpr.io.ParquetDataset(self.path_embeddings).open() as ds:
-            embeddings = ds.read_pandas().to_pandas()
-            embeddings = embeddings.to_numpy()
-
-        with dpr.io.ParquetDataset(self.path_biases).open() as ds:
-            biases = ds.read_pandas().to_pandas()
-            biases = biases.to_numpy()
-
-        embeddings_with_biases = np.concatenate([embeddings, biases], axis=-1)
-
-        index = faiss.IndexFlatIP(embeddings_with_biases.shape[-1])
-        index.add(np.ascontiguousarray(embeddings_with_biases))
-        _, indices = index.search(users_with_ones, k=self.num_queries)
+        LOGGER.info(f"Shapes, embeddings={embeddings.shape}, users={users.shape}")
+        index = faiss.IndexFlatIP(embeddings.shape[-1])
+        index.add(np.ascontiguousarray(embeddings))
+        _, indices = index.search(users, k=self.num_queries)
 
         k_values = [self.k] if isinstance(self.k, int) else self.k
         for k in k_values:
